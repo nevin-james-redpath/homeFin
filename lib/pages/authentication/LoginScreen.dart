@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:homefin/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool loading = false;
+  final _authService = AuthService();
 
   Future<void> _login() async {
     setState(() => loading = true);
@@ -42,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final formWidth = screenWidth * 0.35;
     final screenheight = MediaQuery.of(context).size.height;
-    final formHeight = screenheight * 0.55;
+    final formHeight = screenheight * 0.65;
     return Scaffold(
       appBar: AppBar(title: const Text('Login')),
       body: Container(
@@ -113,9 +116,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       SizedBox(height: 24),
                       TextButton(
                         onPressed: () {
-                          Navigator.pushNamed(context, '/register');
+                          context.go('/register');
                         },
                         child: const Text("Don’t have an account? Register"),
+                      ),
+                      SizedBox(height: 25),
+                      ElevatedButton(
+                        onPressed: _authService.signInWithGoogle,
+                        child: const Text('Sign in with Google'),
                       ),
                     ],
                   ),

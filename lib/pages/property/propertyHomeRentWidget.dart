@@ -1,0 +1,416 @@
+import 'package:flutter/material.dart';
+import 'package:homefin/services/rentPayments_service.dart';
+import 'package:homefin/services/tenant_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class propertyHomeRentWidget extends StatefulWidget {
+  final String propertyID;
+
+  const propertyHomeRentWidget({super.key, required this.propertyID});
+
+  @override
+  State<propertyHomeRentWidget> createState() => _propertyHomeRentState();
+}
+
+class _propertyHomeRentState extends State<propertyHomeRentWidget> {
+  final supabase = Supabase.instance.client;
+  final _tenantService = TenantService();
+  final _rentPaymentService = rentPaymentsService();
+
+  List<Map<String, dynamic>> tenants = [];
+  List<DateTime> months = [];
+  Map<String, dynamic> rentStatus = {};
+
+  final ScrollController _horizontalHeaderController = ScrollController();
+  final ScrollController _horizontalBodyController = ScrollController();
+  final ScrollController _verticalController = ScrollController();
+
+  static const double _tenantColumnWidth = 140;
+  static const double _cellWidth = 110;
+  static const double _cellHeight = 50;
+  static const double _headerHeight = 45;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Sync header and body horizontally
+    _horizontalBodyController.addListener(() {
+      if (_horizontalHeaderController.hasClients) {
+        _horizontalHeaderController.jumpTo(_horizontalBodyController.offset);
+      }
+    });
+
+    _initializeData().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        while (_horizontalBodyController.hasClients &&
+            _horizontalBodyController.position.maxScrollExtent == 0) {
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+
+        if (_horizontalBodyController.hasClients) {
+          final viewportWidth = MediaQuery.of(context).size.width;
+
+          final now = DateTime.now();
+          final currentIndex = months.indexWhere(
+            (m) => m.month == now.month && m.year == now.year,
+          );
+          final targetIndex = currentIndex >= 0
+              ? currentIndex
+              : months.length - 1;
+
+          final double scrollOffset =
+              (targetIndex * _cellWidth - viewportWidth / 2).clamp(
+                0.0,
+                double.infinity,
+              );
+
+          await _horizontalBodyController.animateTo(
+            scrollOffset,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    });
+  }
+
+  Future<void> _initializeData() async {
+    await _loadTenants();
+    _generateMonths();
+    await _loadRentStatus();
+    setState(() {});
+  }
+
+  Future<void> _loadTenants() async {
+    final response = await _tenantService.getTenantsByPropertyId(
+      widget.propertyID,
+    );
+    tenants = List<Map<String, dynamic>>.from(
+      response.map((t) {
+        // Parse stopDate safely
+        final stopDate = t['stopDate'] != null
+            ? DateTime.parse(t['stopDate'])
+            : null;
+        return {...t, 'stopDate': stopDate};
+      }),
+    );
+  }
+
+  void _generateMonths() {
+    final now = DateTime.now();
+    months = List.generate(
+      12,
+      (i) => DateTime(now.year, now.month - i, 1),
+    ).reversed.toList();
+  }
+
+  Future<void> _loadRentStatus() async {
+    final response = await _rentPaymentService.getRentPayments(
+      widget.propertyID,
+    );
+    for (var rent in response) {
+      final key =
+          "${rent['tenantID']}_${DateTime.parse(rent['month']).toIso8601String()}";
+      rentStatus[key] = {
+        'amount': rent['amount'] ?? 0,
+        'lastMonth': rent['lastMonth'] ?? false,
+      };
+    }
+  }
+
+  Future<void> _toggleRent(
+    String tenantId,
+    DateTime month,
+    double tenantRent, {
+    bool isLastMonth = false,
+  }) async {
+    final key = "${tenantId}_${month.toIso8601String()}";
+    final record = rentStatus[key] ?? {'amount': 0, 'lastMonth': false};
+    final isPaid = (record['amount'] ?? 0) > 0;
+
+    try {
+      if (isPaid && !isLastMonth) {
+        await _rentPaymentService.updateRentPayment(
+          tenantId,
+          0,
+          widget.propertyID,
+          month,
+        );
+        record['amount'] = 0;
+      } else {
+        final existing = await _rentPaymentService
+            .getRentPaymentsByPropertyIDAndTenantID(
+              widget.propertyID,
+              tenantId,
+              month,
+            );
+
+        if (existing.isEmpty) {
+          await _rentPaymentService.addRentPayment(
+            tenantId,
+            widget.propertyID,
+            month,
+            tenantRent,
+            isLastMonth,
+          );
+        } else {
+          await _rentPaymentService.updateRentPaymentLastMonth(
+            tenantId,
+            tenantRent,
+            widget.propertyID,
+            month,
+            isLastMonth,
+          );
+        }
+
+        record['amount'] = tenantRent;
+        record['lastMonth'] = isLastMonth;
+      }
+
+      rentStatus[key] = record;
+      setState(() {});
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error updating rent: $e')));
+    }
+  }
+
+  /// 🔹 Toggles one-time Last Month (security) payment for a tenant
+  Future<void> _toggleLastMonthPayment(String tenantId, bool lastMonth) async {
+    try {
+      await _tenantService.updateLastMonth(lastMonth, widget.propertyID);
+
+      setState(() {
+        final tenant = tenants.firstWhere(
+          (t) => t['id'] == tenantId,
+          orElse: () => {},
+        );
+        if (tenant.isNotEmpty) {
+          tenant['lastMonth'] = lastMonth;
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error updating lastMonth: $e')));
+    }
+  }
+
+  Widget _lastMonthCheckbox(Map<String, dynamic> tenant) {
+    final bool isChecked = tenant['lastMonth'] ?? false;
+
+    return Container(
+      width: _cellWidth,
+      height: _cellHeight,
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 225, 220, 245),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+        ),
+      ),
+      child: Center(
+        child: Checkbox(
+          value: isChecked,
+          onChanged: (_) => _toggleLastMonthPayment(tenant['id'], !isChecked),
+          activeColor: Colors.white,
+          checkColor: Colors.purple.shade400,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (tenants.isEmpty || months.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final totalGridWidth = (months.length + 1) * _cellWidth;
+
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.6,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          children: [
+            // ─── Header Row ───
+            Row(
+              children: [
+                _headerCell('Tenants', width: _tenantColumnWidth),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _horizontalHeaderController,
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ...months.map(
+                          (m) => _headerCell(
+                            "${_monthName(m.month)} ${m.year}",
+                            width: _cellWidth,
+                          ),
+                        ),
+                        _headerCell("Last Month", width: _cellWidth),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // ─── Scrollable Data Section ───
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _verticalController,
+                scrollDirection: Axis.vertical,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      children: tenants
+                          .map((t) => _tenantCell(t['fullName']))
+                          .toList(),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: _horizontalBodyController,
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: totalGridWidth,
+                          child: Column(
+                            children: tenants.map((tenant) {
+                              return Row(
+                                children: [
+                                  ...months.map((month) {
+                                    final key =
+                                        "${tenant['id']}_${month.toIso8601String()}";
+                                    final record =
+                                        rentStatus[key] ??
+                                        {'amount': 0, 'lastMonth': false};
+                                    final isPaid = (record['amount'] ?? 0) > 0;
+                                    final tenantRent = (tenant['rent'] ?? 0)
+                                        .toDouble();
+                                    return _rentCell(
+                                      tenant['id'],
+                                      month,
+                                      isPaid,
+                                      tenantRent,
+                                    );
+                                  }),
+                                  _lastMonthCheckbox(tenant),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // === Helper widgets ===
+  Widget _headerCell(String label, {double width = 100}) => Container(
+    width: width,
+    height: _headerHeight,
+    decoration: BoxDecoration(
+      color: Colors.purple.shade200,
+      border: Border(
+        bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+      ),
+    ),
+    alignment: Alignment.center,
+    child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+  );
+
+  Widget _tenantCell(String name) => Container(
+    width: _tenantColumnWidth,
+    height: _cellHeight,
+    decoration: BoxDecoration(
+      color: Colors.purple.shade50,
+      border: Border(
+        bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+      ),
+    ),
+    alignment: Alignment.centerLeft,
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: Text(name, overflow: TextOverflow.ellipsis),
+  );
+
+  Widget _rentCell(
+    String tenantId,
+    DateTime month,
+    bool isPaid,
+    double tenantRent,
+  ) {
+    final tenant = tenants.firstWhere(
+      (t) => t['id'] == tenantId,
+      orElse: () => {},
+    );
+    final DateTime? stopDate = tenant['stopDate'];
+
+    // 🔹 Determine if this cell should be disabled
+    bool isDisabled = false;
+    if (stopDate != null) {
+      // Get the first day of stop date month
+      final stopMonth = DateTime(stopDate.year, stopDate.month, 1);
+      final cellMonth = DateTime(month.year, month.month, 1);
+
+      // If the stop month is the same or before this cell month → disable
+      if (!cellMonth.isBefore(stopMonth)) {
+        isDisabled = true;
+      }
+    }
+
+    return Container(
+      width: _cellWidth,
+      height: _cellHeight,
+      decoration: BoxDecoration(
+        color: isDisabled
+            ? Colors
+                  .grey
+                  .shade300 // Disabled look
+            : const Color.fromARGB(255, 238, 230, 245),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+        ),
+      ),
+      child: Center(
+        child: Checkbox(
+          value: isPaid,
+          onChanged: isDisabled
+              ? null // 🔹 Disable interaction
+              : (_) => _toggleRent(tenantId, month, tenantRent),
+          activeColor: Colors.white,
+          checkColor: Colors.purple.shade400,
+        ),
+      ),
+    );
+  }
+
+  String _monthName(int month) {
+    const names = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return names[month];
+  }
+}

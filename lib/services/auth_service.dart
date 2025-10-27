@@ -63,7 +63,7 @@ class AuthService {
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         // redirectTo: 'io.supabase.homefin://login-callback/',
-        redirectTo: 'http://localhost:60409/',
+        redirectTo: 'http://localhost:57606/',
       );
     } catch (e) {
       print('Error during Google sign-in: $e');

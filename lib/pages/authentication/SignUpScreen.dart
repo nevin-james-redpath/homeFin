@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:homefin/services/auth_service.dart';
 import 'LoginScreen.dart';
+import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -35,10 +36,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             content: Text('Registration successful! Check your email.'),
           ),
         );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+        context.go('/login');
       }
     } catch (e) {
       final errorMsg = e.toString();

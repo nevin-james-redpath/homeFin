@@ -3,12 +3,19 @@ import 'package:flutter/material.dart';
 class MyCard extends StatelessWidget {
   final String imagePath;
   final String title;
+  final VoidCallback? onTap;
 
-  const MyCard({super.key, required this.imagePath, required this.title});
+  const MyCard({
+    super.key,
+    required this.imagePath,
+    required this.title,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return InkWell(
+      onTap: onTap,
       child: Card(
         elevation: 20,
         shadowColor: Colors.black,
