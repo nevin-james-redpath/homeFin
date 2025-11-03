@@ -4,6 +4,7 @@ import 'package:homefin/services/expense_service.dart';
 import 'package:homefin/widgets/DynamicTable.dart';
 import 'package:homefin/widgets/forms/DynamicForm.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 class Propertyexpenses extends StatefulWidget {
   final String propertyID;
@@ -137,15 +138,55 @@ class _propertyStateUI extends State<Propertyexpenses> {
       ),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text("Expenses")),
+      appBar: AppBar(
+        elevation: 4,
+        title: Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                context.go('/home'); // 👈 Navigate to Home page
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(4.0),
+                child: Icon(
+                  Icons.home,
+                  size: 26,
+                  color: Colors.white, // ✅ white icon
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Expenses',
+              style: const TextStyle(
+                color: Colors.white, // ✅ white text
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF6A5ACD),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    // optional different color
+                  ),
+                  onPressed: () {
+                    context.go('/property/?id=${widget.propertyID}');
+                  },
+                  icon: const Icon(Icons.arrow_circle_left_outlined),
+                  label: const Text('Back to property'),
+                ),
                 ElevatedButton.icon(
                   onPressed: () async {
                     showDialog(

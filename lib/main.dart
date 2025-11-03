@@ -9,6 +9,7 @@ import 'package:homefin/pages/property/propertyHome.dart';
 import 'package:homefin/pages/users/tenantList.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

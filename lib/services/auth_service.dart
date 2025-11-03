@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/user_model.dart';
@@ -60,10 +61,14 @@ class AuthService {
 
   Future<void> signInWithGoogle() async {
     try {
+      final redirectUrl = kIsWeb
+          ? 'http://localhost:57606/' // must exactly match what’s in the browser + Supabase
+          : 'io.supabase.homefin://login-callback/';
+      print(redirectUrl);
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         // redirectTo: 'io.supabase.homefin://login-callback/',
-        redirectTo: 'http://localhost:57606/',
+        redirectTo: redirectUrl,
       );
     } catch (e) {
       print('Error during Google sign-in: $e');

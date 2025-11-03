@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:homefin/services/dataRefresh_service.dart';
 import 'package:homefin/services/rentPayments_service.dart';
 import 'package:homefin/services/tenant_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,6 +17,7 @@ class _propertyHomeRentState extends State<propertyHomeRentWidget> {
   final supabase = Supabase.instance.client;
   final _tenantService = TenantService();
   final _rentPaymentService = rentPaymentsService();
+  final _dataRefreshService = DataRefreshService();
 
   List<Map<String, dynamic>> tenants = [];
   List<DateTime> months = [];
@@ -43,33 +45,12 @@ class _propertyHomeRentState extends State<propertyHomeRentWidget> {
 
     _initializeData().then((_) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        while (_horizontalBodyController.hasClients &&
-            _horizontalBodyController.position.maxScrollExtent == 0) {
-          await Future.delayed(const Duration(milliseconds: 50));
-        }
+        await Future.delayed(const Duration(milliseconds: 200));
 
         if (_horizontalBodyController.hasClients) {
-          final viewportWidth = MediaQuery.of(context).size.width;
-
-          final now = DateTime.now();
-          final currentIndex = months.indexWhere(
-            (m) => m.month == now.month && m.year == now.year,
-          );
-          final targetIndex = currentIndex >= 0
-              ? currentIndex
-              : months.length - 1;
-
-          final double scrollOffset =
-              (targetIndex * _cellWidth - viewportWidth / 2).clamp(
-                0.0,
-                double.infinity,
-              );
-
-          await _horizontalBodyController.animateTo(
-            scrollOffset,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOut,
-          );
+          final maxExtent = _horizontalBodyController.position.maxScrollExtent;
+          _horizontalBodyController.jumpTo(maxExtent);
+          _horizontalHeaderController.jumpTo(maxExtent);
         }
       });
     });
@@ -101,8 +82,8 @@ class _propertyHomeRentState extends State<propertyHomeRentWidget> {
     final now = DateTime.now();
     months = List.generate(
       12,
-      (i) => DateTime(now.year, now.month - i, 1),
-    ).reversed.toList();
+      (i) => DateTime(now.year, now.month - 11 + i, 1),
+    ); // oldest first → newest last
   }
 
   Future<void> _loadRentStatus() async {
@@ -170,6 +151,7 @@ class _propertyHomeRentState extends State<propertyHomeRentWidget> {
 
       rentStatus[key] = record;
       setState(() {});
+      _dataRefreshService.notifyDataUpdated();
     } catch (e) {
       ScaffoldMessenger.of(
         context,

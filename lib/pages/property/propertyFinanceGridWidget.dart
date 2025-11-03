@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:homefin/services/dataRefresh_service.dart';
 import 'package:homefin/services/expense_service.dart';
 import 'package:homefin/services/tenant_service.dart';
 import 'package:homefin/services/utitlity_service.dart';
@@ -19,8 +20,10 @@ class _PropertyFinanceGridWidgetState extends State<propertyFinanceGridWidget> {
   final supabase = Supabase.instance.client;
   final _utilityService = UtitlityService();
   final _expenseService = ExpenseService();
+  final _dataRefreshService = DataRefreshService();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, FocusNode> _focusNodes = {};
+  final ScrollController _horizontalController = ScrollController();
 
   static const double _cellWidth = 110;
   static const double _cellHeight = 50;
@@ -42,15 +45,27 @@ class _PropertyFinanceGridWidgetState extends State<propertyFinanceGridWidget> {
   void initState() {
     super.initState();
     _generateMonths();
-    _loadFinanceData();
+    _loadFinanceData().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Future.delayed(const Duration(milliseconds: 200));
+
+        if (_horizontalController.hasClients) {
+          _horizontalController.jumpTo(
+            _horizontalController.position.maxScrollExtent,
+          );
+        }
+      });
+    });
   }
 
   void _generateMonths() {
     final now = DateTime.now();
-    months = List.generate(
-      7,
-      (i) => DateTime(now.year, now.month - i, 1),
-    ).reversed.toList();
+
+    // Generate 12 months including current (oldest → newest)
+    months = List.generate(12, (i) {
+      final date = DateTime(now.year, now.month - 11 + i, 1);
+      return date;
+    });
   }
 
   Future<void> _loadFinanceData() async {
@@ -98,28 +113,52 @@ class _PropertyFinanceGridWidgetState extends State<propertyFinanceGridWidget> {
   }
 
   Future<void> _updateAmount(String type, DateTime month, String value) async {
-    if (type == 'Other Expenses') return; // readonly
+    // Safely parse numeric value
+    final amount = double.tryParse(value.trim()) ?? 0;
+    // 🧠 Prevent updating if "Other Expenses" and value is 0 or blank
+    if (type == 'Other Expenses' || (value.trim().isEmpty || amount == 0)) {
+      debugPrint('Skipping update for $type with 0 or empty value');
+      return;
+    } else {
+      // Construct unique key for UI state
+      final key = "${type}_${month.toIso8601String()}";
 
-    final double amount = double.tryParse(value) ?? 0;
-    final key = "${type}_${month.toIso8601String()}";
-    financeData[key] = value;
-    setState(() {});
+      // Avoid redundant updates
+      if (financeData[key] == value) {
+        debugPrint('No change detected for $type at $month, skipping update.');
+        return;
+      }
 
-    try {
-      _utilityService.addUpdateUtility(widget.propertyID, type, month, amount);
+      // Update local state
+      financeData[key] = value;
+      setState(() {});
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$type updated for ${_monthName(month.month)} ${month.year}',
+      try {
+        // ✅ Ensure the async call is awaited
+        await _utilityService.addUpdateUtility(
+          widget.propertyID,
+          type,
+          month,
+          amount,
+        );
+
+        // ✅ Notify charts to refresh
+        _dataRefreshService.notifyDataUpdated();
+
+        // Show confirmation
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$type updated for ${_monthName(month.month)} ${month.year}',
+            ),
+            duration: const Duration(seconds: 1),
           ),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error updating amount: $e')));
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating $type: $e')));
+      }
     }
   }
 
@@ -182,6 +221,7 @@ class _PropertyFinanceGridWidgetState extends State<propertyFinanceGridWidget> {
         // ---------- RIGHT GRID (Scrollable Months) ----------
         Expanded(
           child: SingleChildScrollView(
+            controller: _horizontalController,
             scrollDirection: Axis.horizontal,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:homefin/services/dataRefresh_service.dart';
 import 'package:homefin/services/financeSummary_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -15,6 +16,8 @@ class PropertyFinanceSummaryWidget extends StatefulWidget {
 
 class _FinanceSummaryChartState extends State<PropertyFinanceSummaryWidget> {
   final supabase = Supabase.instance.client;
+  final _dataRefreshService = DataRefreshService();
+
   bool _isLoading = true;
   List<Map<String, dynamic>> _summary = [];
   final ScrollController _scrollController = ScrollController();
@@ -24,6 +27,9 @@ class _FinanceSummaryChartState extends State<PropertyFinanceSummaryWidget> {
   void initState() {
     super.initState();
     _loadFinanceSummary();
+    _dataRefreshService.addListener(() {
+      _loadFinanceSummary();
+    });
   }
 
   Future<void> _loadFinanceSummary() async {
@@ -99,83 +105,131 @@ class _FinanceSummaryChartState extends State<PropertyFinanceSummaryWidget> {
           // 🔹 Scrollable bar chart
           SizedBox(
             height: 285,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: months.length * 100, // adjust width per month
-                child: BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    maxY: maxY,
-                    minY: 0,
-                    gridData: FlGridData(show: true),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 45,
-                          getTitlesWidget: (value, meta) {
-                            if (value == 0) return const Text('0');
-                            if (value >= 1000) {
-                              return Text(
-                                '\$${(value / 1000).toStringAsFixed(1)}k',
-                              );
-                            }
-                            return Text('\$${value.toStringAsFixed(0)}');
-                          },
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 🔹 Sticky Left Y-Axis Labels
+                SizedBox(
+                  width: 55,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(6, (index) {
+                      final maxValue = maxY;
+                      final value = maxValue - (maxValue / 5) * index;
+                      String label;
+                      if (value >= 1000) {
+                        label = "\$${(value / 1000).toStringAsFixed(1)}k";
+                      } else {
+                        label = "\$${value.toStringAsFixed(0)}";
+                      }
+                      return Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.black54,
                         ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, meta) {
-                            final i = value.toInt();
-                            if (i < 0 || i >= months.length)
-                              return const Text('');
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(
-                                months[i],
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    barGroups: List.generate(months.length, (i) {
-                      final data = grouped[months[i]]!;
-                      final income = data['Income'] ?? 0;
-                      final expenses = data['Expenses'] ?? 0;
-
-                      return BarChartGroupData(
-                        x: i,
-                        barsSpace: 8,
-                        barRods: [
-                          // Income bar
-                          BarChartRodData(
-                            toY: income,
-                            width: 14,
-                            color: Colors.green[400],
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          // Expense bar
-                          BarChartRodData(
-                            toY: expenses,
-                            width: 14,
-                            color: Colors.red[400],
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ],
                       );
                     }),
                   ),
                 ),
-              ),
+
+                // 🔹 Scrollable Chart Area
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: months.length * 100,
+                      child: BarChart(
+                        BarChartData(
+                          alignment: BarChartAlignment.spaceAround,
+                          maxY: maxY,
+                          minY: 0,
+                          gridData: FlGridData(show: true),
+                          borderData: FlBorderData(show: false),
+                          titlesData: FlTitlesData(
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            rightTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                getTitlesWidget: (value, meta) {
+                                  final i = value.toInt();
+                                  if (i < 0 || i >= months.length)
+                                    return const Text('');
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: Text(
+                                      months[i],
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          barGroups: List.generate(months.length, (i) {
+                            final data = grouped[months[i]]!;
+                            final income = data['Income'] ?? 0;
+                            final expenses = data['Expenses'] ?? 0;
+
+                            return BarChartGroupData(
+                              x: i,
+                              barsSpace: 8,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: income,
+                                  width: 14,
+                                  color: Colors.green[400],
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                BarChartRodData(
+                                  toY: expenses,
+                                  width: 14,
+                                  color: Colors.red[400],
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ],
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 🔹 Sticky Right Y-Axis (optional mirror)
+                SizedBox(
+                  width: 55,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(6, (index) {
+                      final maxValue = maxY;
+                      final value = maxValue - (maxValue / 5) * index;
+                      String label;
+                      if (value >= 1000) {
+                        label = "\$${(value / 1000).toStringAsFixed(1)}k";
+                      } else {
+                        label = "\$${value.toStringAsFixed(0)}";
+                      }
+                      return Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.black54,
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
             ),
           ),
+
           const SizedBox(height: 16),
           // 🔹 Legend
           Row(

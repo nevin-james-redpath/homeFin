@@ -18,20 +18,20 @@ class PropertyService {
       if (response != null && response.isNotEmpty) {
         final insertedProperty = response.first;
         final propertyID = insertedProperty['id'];
-        addUserAccess(propertyID);
+        addUserAccess(propertyID, currentUser!.id);
       }
     } catch (e) {
       throw 'Failed to add property: $e';
     }
   }
 
-  Future<void> addUserAccess(String propertyID) async {
+  Future<void> addUserAccess(String propertyID, String? userID) async {
     try {
       if (currentUser == null) {
         throw 'User not logged in';
       }
       final propertyUserData = {
-        'userID': currentUser!.id,
+        'userID': userID,
         'propertyID': propertyID,
         'accessLevel': 'owner',
       };

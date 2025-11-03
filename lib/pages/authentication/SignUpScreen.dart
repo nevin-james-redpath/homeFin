@@ -72,8 +72,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final formWidth = screenWidth * 0.35;
-    final screenheight = MediaQuery.of(context).size.height;
-    final formHeight = screenheight * 0.55;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final formHeight = screenHeight * 0.55;
+    final breakHeight = screenHeight * 0.02;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Register'),
@@ -105,7 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         width: 100,
                         height: 100,
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: breakHeight),
                       const Text(
                         'Create an Account',
                         textAlign: TextAlign.center,
@@ -115,7 +116,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           color: Color.fromARGB(255, 150, 115, 211),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: breakHeight),
                       TextField(
                         controller: emailController,
                         decoration: const InputDecoration(
@@ -126,7 +127,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: breakHeight),
                       TextField(
                         controller: passwordController,
                         decoration: const InputDecoration(
@@ -138,7 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         obscureText: true,
                       ),
-                      const SizedBox(height: 44),
+                      SizedBox(height: breakHeight),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
@@ -164,10 +165,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 style: TextStyle(fontSize: 16),
                               ),
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: breakHeight),
                       ElevatedButton(
                         onPressed: _authService.signInWithGoogle,
                         child: const Text('Sign up with Google'),
+                      ),
+                      SizedBox(height: breakHeight),
+                      TextButton(
+                        onPressed: () {
+                          context.go('/login');
+                        },
+                        child: const Text("Already have an account? Login"),
                       ),
                       if (showResendButton) ...[
                         const SizedBox(height: 16),

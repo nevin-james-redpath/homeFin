@@ -107,7 +107,35 @@ class _PropertyHomeState extends State<propertyHome> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(propertyDetails?['address'] ?? 'Property Address'),
+        elevation: 4,
+        title: Row(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                context.go('/home'); // 👈 Navigate to Home page
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(4.0),
+                child: Icon(
+                  Icons.home,
+                  size: 26,
+                  color: Colors.white, // ✅ white icon
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              propertyDetails?['address'] ?? 'Property Address',
+              style: const TextStyle(
+                color: Colors.white, // ✅ white text
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF6A5ACD),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(8.0),
