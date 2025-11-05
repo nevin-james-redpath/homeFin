@@ -159,7 +159,7 @@ class _PropertyExpensesWidgetUI extends State<PropertyExpensesWidget> {
           const SizedBox(height: 10),
 
           SizedBox(
-            height: 251,
+            height: MediaQuery.of(context).size.height * 0.24,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

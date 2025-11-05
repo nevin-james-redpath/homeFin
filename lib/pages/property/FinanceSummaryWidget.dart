@@ -104,7 +104,7 @@ class _FinanceSummaryChartState extends State<PropertyFinanceSummaryWidget> {
         children: [
           // 🔹 Scrollable bar chart
           SizedBox(
-            height: 285,
+            height: MediaQuery.of(context).size.height * 0.283,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

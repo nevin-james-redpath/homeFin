@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:homefin/services/dataRefresh_service.dart';
 import 'package:homefin/services/rentPayments_service.dart';
 import 'package:homefin/services/tenant_service.dart';
+import 'package:homefin/themes/TableColors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class propertyHomeRentWidget extends StatefulWidget {
@@ -182,6 +183,8 @@ class _propertyHomeRentState extends State<propertyHomeRentWidget> {
 
   Widget _lastMonthCheckbox(Map<String, dynamic> tenant) {
     final bool isChecked = tenant['lastMonth'] ?? false;
+        final tableColors = Theme.of(context).extension<TableColors>()!;
+
 
     return Container(
       width: _cellWidth,
@@ -210,6 +213,8 @@ class _propertyHomeRentState extends State<propertyHomeRentWidget> {
     }
 
     final totalGridWidth = (months.length + 1) * _cellWidth;
+    final tableColors = Theme.of(context).extension<TableColors>()!;
+
 
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.6,
@@ -299,83 +304,123 @@ class _propertyHomeRentState extends State<propertyHomeRentWidget> {
   }
 
   // === Helper widgets ===
-  Widget _headerCell(String label, {double width = 100}) => Container(
+  Widget _headerCell(String label, {double width = 100}) {
+        final tableColors = Theme.of(context).extension<TableColors>()!;
+
+    return Container(
     width: width,
     height: _headerHeight,
     decoration: BoxDecoration(
-      color: Colors.purple.shade200,
+      color: tableColors.headerBackground,
       border: Border(
         bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
       ),
     ),
     alignment: Alignment.center,
-    child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+    child: Text(label, style: TextStyle(fontWeight: FontWeight.bold,
+    color:tableColors.headerTextColor)),
   );
+  } 
 
-  Widget _tenantCell(String name) => Container(
+  Widget _tenantCell(String name) {
+    final tableColors = Theme.of(context).extension<TableColors>()!;
+
+    return Container(
     width: _tenantColumnWidth,
     height: _cellHeight,
     decoration: BoxDecoration(
-      color: Colors.purple.shade50,
+      color: tableColors.leftColumnBackground,
       border: Border(
         bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
       ),
     ),
     alignment: Alignment.centerLeft,
     padding: const EdgeInsets.symmetric(horizontal: 8),
-    child: Text(name, overflow: TextOverflow.ellipsis),
+    child: Text(name, overflow: TextOverflow.ellipsis,style: TextStyle(
+                          color: tableColors.leftColumnTextColor,
+
+    ),),
   );
+  } 
 
   Widget _rentCell(
-    String tenantId,
-    DateTime month,
-    bool isPaid,
-    double tenantRent,
-  ) {
-    final tenant = tenants.firstWhere(
-      (t) => t['id'] == tenantId,
-      orElse: () => {},
-    );
-    final DateTime? stopDate = tenant['stopDate'];
+  String tenantId,
+  DateTime month,
+  bool isPaid,
+  double tenantRent,
+) {
+  final tenant = tenants.firstWhere(
+    (t) => t['id'] == tenantId,
+    orElse: () => {},
+  );
 
-    // 🔹 Determine if this cell should be disabled
-    bool isDisabled = false;
-    if (stopDate != null) {
-      // Get the first day of stop date month
-      final stopMonth = DateTime(stopDate.year, stopDate.month, 1);
-      final cellMonth = DateTime(month.year, month.month, 1);
+  final stopDateRaw = tenant['stopDate'];
+  final startDateRaw = tenant['startDate'];
 
-      // If the stop month is the same or before this cell month → disable
-      if (!cellMonth.isBefore(stopMonth)) {
-        isDisabled = true;
-      }
+  // ✅ Safely parse to DateTime (handles both String and DateTime)
+  DateTime? stopDate;
+  DateTime? startDate;
+
+  if (stopDateRaw != null) {
+    if (stopDateRaw is String) {
+      stopDate = DateTime.tryParse(stopDateRaw.split('T').first);
+    } else if (stopDateRaw is DateTime) {
+      stopDate = stopDateRaw;
     }
-
-    return Container(
-      width: _cellWidth,
-      height: _cellHeight,
-      decoration: BoxDecoration(
-        color: isDisabled
-            ? Colors
-                  .grey
-                  .shade300 // Disabled look
-            : const Color.fromARGB(255, 238, 230, 245),
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
-        ),
-      ),
-      child: Center(
-        child: Checkbox(
-          value: isPaid,
-          onChanged: isDisabled
-              ? null // 🔹 Disable interaction
-              : (_) => _toggleRent(tenantId, month, tenantRent),
-          activeColor: Colors.white,
-          checkColor: Colors.purple.shade400,
-        ),
-      ),
-    );
   }
+
+  if (startDateRaw != null) {
+    if (startDateRaw is String) {
+      startDate = DateTime.tryParse(startDateRaw.split('T').first);
+    } else if (startDateRaw is DateTime) {
+      startDate = startDateRaw;
+    }
+  }
+
+  // 🔹 Determine if this cell should be disabled
+  bool isDisabled = false;
+  final cellMonth = DateTime(month.year, month.month, 1);
+
+  // Tenant has a stop date → disable months after or equal to that month
+  if (stopDate != null) {
+    final stopMonth = DateTime(stopDate.year, stopDate.month, 1);
+    if (!cellMonth.isBefore(stopMonth)) {
+      isDisabled = true;
+    }
+  }
+
+  // Tenant has a start date → disable months before start date
+  if (startDate != null) {
+    final startMonth = DateTime(startDate.year, startDate.month, 1);
+    if (cellMonth.isBefore(startMonth)) {
+      isDisabled = true;
+    }
+  }
+
+  return Container(
+    width: _cellWidth,
+    height: _cellHeight,
+    decoration: BoxDecoration(
+      color: isDisabled
+          ? const Color.fromARGB(255, 214, 212, 231) // disabled look
+          : const Color.fromARGB(255, 238, 234, 241),
+      border: Border(
+        bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+      ),
+    ),
+    child: Center(
+      child: Checkbox(
+        value: isPaid,
+        onChanged: isDisabled
+            ? null
+            : (_) => _toggleRent(tenantId, month, tenantRent),
+        activeColor: Colors.white,
+        checkColor: Colors.purple.shade400,
+      ),
+    ),
+  );
+}
+
 
   String _monthName(int month) {
     const names = [

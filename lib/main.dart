@@ -5,8 +5,9 @@ import 'package:homefin/pages/authentication/LoginScreen.dart';
 import 'package:homefin/pages/authentication/SignUpScreen.dart';
 import 'package:homefin/pages/dashboard/homeScreen.dart';
 import 'package:homefin/pages/expenses/propertyExpenses.dart';
-import 'package:homefin/pages/property/propertyHome.dart';
+import 'package:homefin/pages/property/Home.dart';
 import 'package:homefin/pages/users/tenantList.dart';
+import 'package:homefin/themes/theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -90,6 +91,9 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       routerConfig: _router,
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: ThemeMode.light,
     );
   }
 }

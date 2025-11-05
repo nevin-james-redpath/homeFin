@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:homefin/pages/property/propertyExpensesWidget.dart';
-import 'package:homefin/pages/property/propertyFinanceGridWidget.dart';
-import 'package:homefin/pages/property/propertyFinanceSummaryWidget.dart';
-import 'package:homefin/pages/property/propertyHomeRentWidget.dart';
+import 'package:homefin/pages/property/ExpensesGraphWidget.dart';
+import 'package:homefin/pages/property/FinanceGridWidget.dart';
+import 'package:homefin/pages/property/FinanceSummaryWidget.dart';
+import 'package:homefin/pages/property/RentWidget.dart';
 import 'package:homefin/services/property_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
